@@ -71,6 +71,14 @@ jobs:
           java-version: '17'
           cache: maven
 
+      # Como no scripts/criar-banco.sql: as extensões ficam no schema public. Sem isso, a migration V1
+      # criaria o unaccent no schema de teste (o primeiro do search_path), e f_unaccent, que chama
+      # public.unaccent, falharia.
+      - name: Extensões do banco
+        env:
+          PGPASSWORD: zelo
+        run: psql -h localhost -U zelo -d zelo -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS postgis SCHEMA public" -c "CREATE EXTENSION IF NOT EXISTS unaccent SCHEMA public"
+
       # Só os testes de integração (*IT): os unitários já rodam no outro job. O schema zelo_teste é
       # recriado pelas migrations, o que também valida as migrations do zero a cada execução.
       - name: Testes de integração

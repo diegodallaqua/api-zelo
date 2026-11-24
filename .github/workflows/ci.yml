@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  testes-unitarios:
+    name: Build e testes unitários
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      # Compila, roda os testes unitários (*Test, sem banco) e gera o jar.
+      - name: Build e testes unitários
+        run: ./mvnw -B -ntp package
+
+      - name: Relatórios dos testes
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorios-testes-unitarios
+          path: target/surefire-reports/
+          retention-days: 7
+
+  testes-de-integracao:
+    name: Testes de integração (PostgreSQL + PostGIS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_DB: zelo
+          POSTGRES_USER: zelo
+          POSTGRES_PASSWORD: zelo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U zelo -d zelo"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # Na CI não há .env: o banco vem destas variáveis. O usuário do contêiner é superusuário,
+      # então a migration V1 cria as extensões postgis e unaccent sozinha.
+      DB_USERNAME: zelo
+      DB_PASSWORD: zelo
+      ZELO_TESTE_DB_URL: jdbc:postgresql://localhost:5432/zelo?currentSchema=zelo_teste,public
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      # Como no scripts/criar-banco.sql: as extensões ficam no schema public. Sem isso, a migration V1
+      # criaria o unaccent no schema de teste (o primeiro do search_path), e f_unaccent, que chama
+      # public.unaccent, falharia.
+      - name: Extensões do banco
+        env:
+          PGPASSWORD: zelo
+        run: psql -h localhost -U zelo -d zelo -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS postgis SCHEMA public" -c "CREATE EXTENSION IF NOT EXISTS unaccent SCHEMA public"
+
+      # Só os testes de integração (*IT): os unitários já rodam no outro job. O schema zelo_teste é
+      # recriado pelas migrations, o que também valida as migrations do zero a cada execução.
+      - name: Testes de integração
+        run: ./mvnw -B -ntp test-compile failsafe:integration-test failsafe:verify
+
+      - name: Relatórios dos testes
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorios-testes-de-integracao
+          path: target/failsafe-reports/
+          retention-days: 7

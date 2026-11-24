@@ -1,0 +1,7 @@
+# Configuração do gitleaks (workflow "Segredos"): regras padrão mais uma exceção para valores de exemplo.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Valores de exemplo, como os do .env.example, começam com 'troque-'"
+regexes = ['''^troque-''']

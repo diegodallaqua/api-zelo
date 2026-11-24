@@ -1,0 +1,34 @@
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: build
+    groups:
+      # O BOM do AWS SDK sai quase todo dia; agrupado, vira um PR por semana.
+      aws-sdk:
+        patterns:
+          - software.amazon.awssdk*
+      imagens:
+        patterns:
+          - com.twelvemonkeys*
+          - net.coobird*
+      patches:
+        update-types:
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns:
+          - '*'

@@ -1,0 +1,32 @@
+# Perfil dos testes de integração (*IT). Usa o PostgreSQL local, num schema próprio (zelo_teste) que é
+# apagado e recriado pelas migrations a cada execução. Usuário e senha vêm de DB_USERNAME/DB_PASSWORD (.env).
+spring:
+  datasource:
+    url: ${ZELO_TESTE_DB_URL:jdbc:postgresql://localhost:5432/zelo?currentSchema=zelo_teste,public}
+  flyway:
+    schemas: zelo_teste
+    default-schema: zelo_teste
+    locations: classpath:db/migration,classpath:db/dados-teste
+    clean-disabled: false
+
+logging:
+  level:
+    root: WARN
+
+zelo:
+  seguranca:
+    jwt:
+      segredo: segredo-dos-testes-de-integracao-com-mais-de-32-bytes
+  rate-limit:
+    habilitado: false
+  admin-inicial:
+    email: ""
+    senha: ""
+  armazenamento:
+    tipo: local
+    local:
+      diretorio: ${java.io.tmpdir}/zelo-teste-uploads
+      url-base: http://localhost/arquivos
+  localidade:
+    ibge:
+      importar-na-inicializacao: false
